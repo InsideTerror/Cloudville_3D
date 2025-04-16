@@ -1,105 +1,77 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>Explore the Courthouse</title>
-  <style>
-    body { margin: 0; overflow: hidden; }
-    canvas { display: block; }
-    #instructions {
-      position: absolute;
-      top: 50%;
-      width: 100%;
-      text-align: center;
-      color: white;
-      font-size: 24px;
-      cursor: pointer;
-      z-index: 1;
-    }
-  </style>
-</head>
-<body>
-  <div id="instructions">Click to start walking</div>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Cloudville Courthouse - Babylon.js</title>
+    <style>
+      html, body {
+        overflow: hidden;
+        padding: 0;
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        background: #000;
+      }
+      canvas {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+    </style>
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/loaders/babylon.glTF2FileLoader.min.js"></script>
+  </head>
+  <body>
+    <canvas id="renderCanvas"></canvas>
 
-  <script type="module">
-    import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
-    import { PointerLockControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/PointerLockControls.js';
-    import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
+    <script>
+      const canvas = document.getElementById("renderCanvas");
+      const engine = new BABYLON.Engine(canvas, true);
 
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x202020);
+      const createScene = async () => {
+        const scene = new BABYLON.Scene(engine);
 
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        // Camera (no collision or gravity)
+        const camera = new BABYLON.UniversalCamera("FPSCamera", new BABYLON.Vector3(0, 10, -30), scene);
+        camera.attachControl(canvas, true);
+        camera.speed = 1;
+        camera.checkCollisions = false;
+        camera.applyGravity = false;
+        camera.ellipsoid = new BABYLON.Vector3(1, 1, 1);
+        camera.keysUp.push(87);    // W
+        camera.keysDown.push(83);  // S
+        camera.keysLeft.push(65);  // A
+        camera.keysRight.push(68); // D
 
-    const renderer = new THREE.WebGLRenderer();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    document.body.appendChild(renderer.domElement);
+        // Light
+        const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+        light.intensity = 0.9;
 
-    // Lighting
-    const light = new THREE.HemisphereLight(0xffffff, 0x444444, 1.2);
-    light.position.set(0, 200, 0);
-    scene.add(light);
+        // Load GLB model
+        await BABYLON.SceneLoader.AppendAsync(
+          "https://file.garden/Z_-mJ8vOt3F2fRcP/",
+          "Courthouse%20(2).glb",
+          scene
+        );
 
-    // Ground
-    const floorGeometry = new THREE.PlaneGeometry(1000, 1000);
-    const floorMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 });
-    const floor = new THREE.Mesh(floorGeometry, floorMaterial);
-    floor.rotation.x = -Math.PI / 2;
-    floor.position.y = -1;
-    scene.add(floor);
+        // Optional: center and scale the model
+        const meshes = scene.meshes.filter(m => m.name !== "__root__");
+        const boundingInfo = BABYLON.Mesh.MergeMeshes(meshes, true, false, undefined, false, true)?.getBoundingInfo();
+        if (boundingInfo) {
+          const center = boundingInfo.boundingBox.centerWorld;
+          meshes.forEach(mesh => mesh.position.subtractInPlace(center)); // move to origin
+        }
 
-    // First Person Controls
-    const controls = new PointerLockControls(camera, document.body);
-    const instructions = document.getElementById('instructions');
-    instructions.addEventListener('click', () => {
-      controls.lock();
-    });
-    controls.addEventListener('lock', () => {
-      instructions.style.display = 'none';
-    });
-    controls.addEventListener('unlock', () => {
-      instructions.style.display = '';
-    });
-    scene.add(controls.getObject());
+        return scene;
+      };
 
-    // Movement
-    const velocity = new THREE.Vector3();
-    const direction = new THREE.Vector3();
-    const keys = {};
-    document.addEventListener('keydown', (e) => keys[e.code] = true);
-    document.addEventListener('keyup', (e) => keys[e.code] = false);
+      createScene().then(scene => {
+        engine.runRenderLoop(() => scene.render());
+      });
 
-    // Load Model
-    const loader = new GLTFLoader();
-    loader.load('https://file.garden/Z_-mJ8vOt3F2fRcP/Courthouse%20(2).glb', function(gltf) {
-      const model = gltf.scene;
-      model.position.set(0, 0, -5);
-      scene.add(model);
-    }, undefined, function(error) {
-      console.error(error);
-    });
-
-    // Animate
-    const clock = new THREE.Clock();
-    function animate() {
-      requestAnimationFrame(animate);
-
-      const delta = clock.getDelta();
-      direction.set(0, 0, 0);
-
-      if (keys['KeyW']) direction.z -= 1;
-      if (keys['KeyS']) direction.z += 1;
-      if (keys['KeyA']) direction.x -= 1;
-      if (keys['KeyD']) direction.x += 1;
-
-      direction.normalize();
-      direction.multiplyScalar(10 * delta);
-      controls.moveRight(direction.x);
-      controls.moveForward(direction.z);
-
-      renderer.render(scene, camera);
-    }
-    animate();
-  </script>
-</body>
+      window.addEventListener("resize", () => {
+        engine.resize();
+      });
+    </script>
+  </body>
 </html>
